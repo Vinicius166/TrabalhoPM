@@ -1,47 +1,57 @@
-from typing import List
+from typing import List, TypeVar, Generic
 from ...viagens.modelo.models import Entidade, Cliente, Destino, Reserva
 
-class Persistente:
-    def __init__(self):
-        self._lista: List[Entidade] = []
+T = TypeVar('T', bound=Entidade)
 
-    def inserir(self, obj: Entidade) -> None:
+
+class NaoEncontrada(Exception):
+    def __init__(self, id: int):
+        super().__init__(f"Entidade com id {id} não encontrada.")
+        self.id = id
+
+
+class Persistente(Generic[T]):
+    def __init__(self) -> None:
+        self._lista: List[T] = []
+
+    def inserir(self, obj: T) -> None:
         if any(o.id == obj.id for o in self._lista):
-            raise ValueError(f"Objeto com id {obj.id} já existe")
+            raise ValueError(f"Objeto com id {obj.id} já existe.")
         self._lista.append(obj)
 
-    def alterar(self, obj: Entidade) -> None:
+    def alterar(self, obj: T) -> None:
         for i, o in enumerate(self._lista):
             if o.id == obj.id:
                 self._lista[i] = obj
                 return
-        raise ValueError(f"Objeto com id {obj.id} não encontrado")
+        raise NaoEncontrada(obj.id)
 
     def excluir(self, id: int) -> None:
         for i, o in enumerate(self._lista):
             if o.id == id:
                 del self._lista[i]
                 return
-        raise ValueError(f"Objeto com id {id} não encontrado")
+        raise NaoEncontrada(id)
 
-    def buscar_por_id(self, id: int):
+    def buscar_por_id(self, id: int) -> T:
         for o in self._lista:
             if o.id == id:
                 return o
-        return None
+        raise NaoEncontrada(id)
 
-    def listar_todos(self) -> List[Entidade]:
+    def listar_todos(self) -> List[T]:
         return list(self._lista)
 
     def __str__(self) -> str:
         return "\n".join(str(o) for o in self._lista)
 
+
 class BancoDeDados:
     def __init__(self):
-        self.clientes = Persistente()
-        self.destinos = Persistente()
-        self.reservas = Persistente()
-        
+        self.clientes = Persistente[Cliente]()
+        self.destinos = Persistente[Destino]()
+        self.reservas = Persistente[Reserva]()
+
     def __str__(self) -> str:
         parts = []
         parts.append("=== CLIENTES ===")
