@@ -2,6 +2,9 @@ import unittest
 from viagens.persistencia.banco import Persistente, NaoEncontrada
 from viagens.modelo.models import Cliente
 
+# comando para rodar os testes n consegui rodar com outro comando:
+# python -m unittest discover -s tests -p "test_*.py"-v
+
 class TestBanco(unittest.TestCase):
 
     def setUp(self):   # criando os dados pros testes
@@ -47,4 +50,5 @@ class TestBanco(unittest.TestCase):
 
     def test_busca_id_inexistente(self):
         with self.assertRaises(NaoEncontrada):
+
             self.p.buscar_por_id(999)
