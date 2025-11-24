@@ -1,5 +1,5 @@
 from typing import List, TypeVar, Generic
-from viagens.modelo.models import Entidade, Cliente, Destino, Reserva
+from ...viagens.modelo.models import Entidade, Cliente, Destino, Reserva
 
 T = TypeVar('T', bound=Entidade)
 
