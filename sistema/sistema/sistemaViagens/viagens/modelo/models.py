@@ -34,7 +34,7 @@ class Destino(Entidade):
         self.valor_diaria = float(valor_diaria)
 
     def __str__(self) -> str:
-       return f"Destino {super().__str__()}, Cidade = '{self.cidade}', Hotel = '{self.hotel}', Valor da diaria = '{self.valor_diaria:.2f}')"
+       return f"Destino ({super().__str__()}, Cidade = '{self.cidade}', Hotel = '{self.hotel}', Valor da diaria = '{self.valor_diaria:.2f}')"
 
 class ItemReserva:
     def __init__(self, destino: Destino, dias: int):
@@ -47,7 +47,7 @@ class ItemReserva:
         return self.destino.valor_diaria * self.dias
 
     def __str__(self) -> str:
-        return f"ItemReserva (Id do destino = {self.destino.id}, Cidade = '{self.destino.cidade}', Dias = '{self.dias}', Custo = '{self.custo():.2f}')"
+        return f"\n    Id do destino = {self.destino.id}, Cidade = '{self.destino.cidade}', Dias = '{self.dias}', Custo = '{self.custo():.2f}')"
 
 class Reserva(Entidade):
     def __init__(self, id: int, cliente: Cliente, metodo_pagamento: int = 2):
@@ -82,4 +82,4 @@ class Reserva(Entidade):
 
     def __str__(self) -> str:
         itens = '; '.join(str(i) for i in self.itens)
-        return f"Reserva ({super().__str__()}, Id do cliente = '{self.cliente.id}', Itens = [{itens}], Total (Com ajustes) = '{self.custo_total():.2f}')"
+        return f"Reserva ({super().__str__()}, Cliente = '{self.cliente.nome}',Itens:{itens},\nTotal (Com ajustes) = '{self.custo_total():.2f}')"
