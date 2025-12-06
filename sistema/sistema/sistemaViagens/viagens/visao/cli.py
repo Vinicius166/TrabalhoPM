@@ -1,6 +1,7 @@
 from ...viagens.persistencia.banco import BancoDeDados, Persistente
 from ...viagens.modelo.models import Cliente, Destino, Reserva, ItemReserva
 from tkinter import *
+from tkinter.ttk import Treeview, Combobox
 
 class GUI:
     def __init__(self, banco):
@@ -48,7 +49,7 @@ class GUI:
         repo = self.banco.clientes
 
         frame = Frame(self.janela)
-        frame.pack(expand=True)
+        frame.pack(fill="both", expand=True)
 
         Label(frame, text="Menu Clientes", font=("Arial", 18)).pack(pady=15)
         Button(frame, text="Inserir Cliente", width=25, command=lambda: self.inserir_cliente("clientes", repo)).pack(pady=5)
@@ -58,10 +59,20 @@ class GUI:
         Button(frame, text="Voltar", width=25, command=self._menu_principal).pack(pady=20)
 
         Label(frame, text="Clientes cadastrados:", font=("Arial", 14)).pack(pady=10)
-        txt = Text(frame, width=80, height=15)
-        txt.pack(pady=10)
-        txt.insert("1.0", str(repo))
-        txt.config(state="disabled")
+        colunas = ("ID", "Nome", "Email")
+        tabela = Treeview(frame, columns=colunas, show="headings", height=15)
+
+        tabela.heading('ID',text='ID')
+        tabela.heading('Nome',text='Nome')
+        tabela.heading('Email',text='Email')
+        tabela.column('ID', width=60)
+        tabela.column('Nome', width=100)
+        tabela.column('Email', width=200)
+
+        tabela.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        for cliente in repo.listar_todos():
+            tabela.insert("", "end", values=(cliente.id, cliente.nome, cliente.email))
 
     def inserir_cliente(self, tipo, repo):
 
@@ -98,16 +109,23 @@ class GUI:
         janela_id = Toplevel(self.janela)
         janela_id.title("Alterar Cliente")
 
-        Label(janela_id, text="Digite o ID do cliente:").pack(pady=5)
-        entry_id = Entry(janela_id)
-        entry_id.pack(pady=5)
+        nomes_clientes = [cliente.nome for cliente in repo.listar_todos()]
+        combo = Combobox(janela_id, values=nomes_clientes, state="readonly")
+        combo.pack(pady=5)
 
         def buscar_cliente():
-            id_cliente = int(entry_id.get())
-            cliente = repo.buscar_por_id(id_cliente)
+            nome_escolhido = combo.get()
+            if not nome_escolhido:
+                return
+            
+            cliente = None
+            for c in repo.listar_todos():
+                if c.nome == nome_escolhido:
+                    cliente = c
+                    break
 
             janela_edicao = Toplevel(self.janela)
-            janela_edicao.title(f"Editar Cliente {id_cliente}")
+            janela_edicao.title(f"Editar Cliente {cliente.id}")
 
             Label(janela_edicao, text="Nome:").pack()
             entry_nome = Entry(janela_edicao)
@@ -138,13 +156,15 @@ class GUI:
         janela_id = Toplevel(self.janela)
         janela_id.title("Deletar Cliente")
 
-        Label(janela_id, text="Digite o ID do cliente:").pack(pady=5)
-        entry_id = Entry(janela_id)
-        entry_id.pack(pady=5)
+        Label(janela_id, text="Selecione o cliente:").pack(pady=5)
+        mapa = {cliente.nome: cliente.id for cliente in repo.listar_todos()}
+        nomes_clientes = [cliente.nome for cliente in repo.listar_todos()]
+        combo = Combobox(janela_id, values=nomes_clientes, state="readonly")
+        combo.pack(pady=5)
 
         def salvar():
-
-            id_cliente = int(entry_id.get())
+            nome_escolhido = combo.get()
+            id_cliente = mapa[nome_escolhido]
             repo.excluir(id_cliente)
             self._gui_clientes()
             janela_id.destroy()
@@ -180,7 +200,7 @@ class GUI:
         repo = self.banco.destinos
 
         frame = Frame(self.janela)
-        frame.pack(expand=True)
+        frame.pack(fill="both", expand=True)
 
         Label(frame, text="Menu Destinos", font=("Arial", 18)).pack(pady=15)
         Button(frame, text="Inserir Destino", width=25, command=lambda: self.inserir_destino("destinos", repo)).pack(pady=5)
@@ -190,10 +210,22 @@ class GUI:
         Button(frame, text="Voltar", width=25, command=self._menu_principal).pack(pady=20)
         
         Label(frame, text="Destinos cadastrados:", font=("Arial", 14)).pack(pady=10)
-        txt = Text(frame, width=80, height=15)
-        txt.pack(pady=10)
-        txt.insert("1.0", str(repo))
-        txt.config(state="disabled")
+        colunas = ("ID", "Cidade", "Hotel", "Diária")
+        tabela = Treeview(frame, columns=colunas, show="headings", height=15)
+
+        tabela.heading('ID',text='ID')
+        tabela.heading('Cidade',text='Cidade')
+        tabela.heading('Hotel',text='Hotel')
+        tabela.heading('Diária',text='Diária(R$)')
+        tabela.column('ID', width=60)
+        tabela.column('Cidade', width=100)
+        tabela.column('Hotel', width=200)
+        tabela.column('Diária', width=60)
+
+        tabela.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        for destino in repo.listar_todos():
+            tabela.insert("", "end", values=(destino.id, destino.cidade, destino.hotel, destino.valor_diaria))
 
 
     def inserir_destino(self, tipo, repo):
@@ -237,16 +269,23 @@ class GUI:
         janela_id = Toplevel(self.janela)
         janela_id.title("Alterar Destino")
 
-        Label(janela_id, text="Digite o ID do destino:").pack(pady=5)
-        entry_id = Entry(janela_id)
-        entry_id.pack(pady=5)
+        nomes_cidades = [destino.cidade for destino in repo.listar_todos()]
+        combo = Combobox(janela_id, values=nomes_cidades, state="readonly")
+        combo.pack(pady=5)
 
-        def buscar():
-            id_destino = int(entry_id.get())
-            destino = repo.buscar_por_id(id_destino)
+        def buscar_cidade():
+            nome_escolhido = combo.get()
+            if not nome_escolhido:
+                return
+            
+            destino = None
+            for c in repo.listar_todos():
+                if c.cidade == nome_escolhido:
+                    destino = c
+                    break
 
             janela_edicao = Toplevel(self.janela)
-            janela_edicao.title(f"Editar Destino {id_destino}")
+            janela_edicao.title(f"Editar Destino {destino.id}")
 
             Label(janela_edicao, text="Cidade:").pack()
             entry_cidade = Entry(janela_edicao)
@@ -264,7 +303,6 @@ class GUI:
             entry_valor.pack(pady=5)
 
             def salvar():
-
                 novo_cidade = entry_cidade.get()
                 novo_hotel = entry_hotel.get()
                 novo_valor = float(entry_valor.get())
@@ -278,20 +316,22 @@ class GUI:
 
             Button(janela_edicao, text="Salvar", command=salvar).pack(pady=10)
 
-        Button(janela_id, text="Buscar", command=buscar).pack(pady=10)
+        Button(janela_id, text="Buscar", command=buscar_cidade).pack(pady=10)
 
     def apagar_destino(self, tipo, repo):
 
         janela_id = Toplevel(self.janela)
         janela_id.title("Deletar Destino")
 
-        Label(janela_id, text="Digite o ID do destino:").pack(pady=5)
-        entry_id = Entry(janela_id)
-        entry_id.pack(pady=5)
+        Label(janela_id, text="Selecione o destino:").pack(pady=5)
+        mapa = {destino.cidade: destino.id for destino in repo.listar_todos()}
+        nomes_cidades = [destino.cidade for destino in repo.listar_todos()]
+        combo = Combobox(janela_id, values=nomes_cidades, state="readonly")
+        combo.pack(pady=5)
 
         def salvar():
-
-            id_destino = int(entry_id.get())
+            destino_escolhido = combo.get()
+            id_destino = mapa[destino_escolhido]
             repo.excluir(id_destino)
             self._gui_destinos()
             janela_id.destroy()
@@ -334,32 +374,85 @@ class GUI:
         Button(frame, text="Apagar Reserva", width=25, command=self.apagar_reserva).pack(pady=5)
         Button(frame, text="Voltar", width=25, command=self._menu_principal).pack(pady=20)
 
-        Label(frame, text="Reservas cadastrados:", font=("Arial", 14)).pack(pady=10)
-        txt = Text(frame, width=100, height=15)
-        txt.pack(pady=10)
-        txt.insert("1.0", str(repo))
-        txt.config(state="disabled")
+        Label(frame, text="Destinos cadastrados:", font=("Arial", 14)).pack(pady=10)
+        colunas = ("ID", "Cliente")
+        tabela = Treeview(frame, columns=colunas, show="headings", height=15)
+
+        tabela.heading('ID',text='ID')
+        tabela.heading('Cliente',text='Cliente')
+        tabela.column('ID', width=60)
+        tabela.column('Cliente', width=100)
+        tabela.pack(pady=10)
+
+        for reserva in repo.listar_todos():
+            tabela.insert("", "end", values=(reserva.id, reserva.cliente.nome))
+
+        self.info_label = Label(frame, text="", font=("Arial", 12))
+        self.info_label.pack(pady=10)
+        
+        def ao_clicar(event):
+            item = tabela.focus()
+            if not item:
+                return
+
+            valores = tabela.item(item, "values")
+            id_reserva = int(valores[0])
+
+            reserva = repo.buscar_por_id(id_reserva)
+
+            janela_info = Toplevel(self.janela)
+            janela_info.title(f"Reserva {id_reserva}")
+            janela_info.geometry("400x300")
+
+            texto = f"Cliente: {reserva.cliente.nome}\n\nDestinos:\n"
+
+            for item_reserva in reserva.itens:
+                texto += (
+                    f" - {item_reserva.destino.cidade}"
+                    f" | {item_reserva.dias} dias"
+                    f" | Custo: R$ {item_reserva.custo():.2f}\n"
+                )
+
+            texto += f"\nCusto total: R$ {reserva.custo_total():.2f}"
+            Label(janela_info, text=texto, justify="left", font=("Arial", 12)).pack(padx=10, pady=10)
+
+        tabela.bind("<ButtonRelease-1>", ao_clicar) 
 
     def inserir_reserva(self):
+        
         janela = Toplevel(self.janela)
         janela.title("Nova Reserva")
         repo = self.banco.clientes
-        Label(janela, text="ID do Cliente:").pack(pady=5)
-        entry_id = Entry(janela)
-        entry_id.pack(pady=5)
+
+        Label(janela, text="Selecionar Cliente:").pack(pady=5)
+        combo = Combobox(janela, state="readonly")
+        combo.pack(pady=5)
+
+        
+        def atualizar_combo():
+            combo["values"] = [c.nome for c in repo.listar_todos()]
+        atualizar_combo()
 
         def continuar():
-            cliente = self.banco.clientes.buscar_por_id(int(entry_id.get()))
-            janela.destroy()
-            self._add_destino(cliente, Reserva(
+            nome_escolhido = combo.get()
+            if not nome_escolhido:
+                return
+            
+            mapa = {cliente.nome: cliente for cliente in repo.listar_todos()}
+
+            cliente_obj = mapa[nome_escolhido]
+            nova_reserva = Reserva(
                 id=len(self.banco.reservas.listar_todos()) + 1,
-                cliente=cliente
-            ))
+                cliente=cliente_obj
+            )
+            janela.destroy()
+            self._add_destino(cliente_obj, nova_reserva)
 
         Button(janela, text="Continuar", width=20, command=continuar).pack(pady=10)
-        Button(janela, text="Adicionar Cliente", width=20, command=lambda: self.inserir_cliente_reserva(repo)).pack(pady=5)
+        Button(janela, text="Adicionar Cliente", width=20, command=lambda: self.inserir_cliente_reserva(repo, combo)).pack(pady=5)
 
-    def inserir_cliente_reserva(self, repo):
+
+    def inserir_cliente_reserva(self, repo, combo):
 
         janela = Toplevel(self.janela)
         janela.title("Inserir Cliente")
@@ -382,8 +475,11 @@ class GUI:
             nome = entry_nome.get()
             email = entry_email.get()
 
-            novo = Cliente(id_cliente, nome, email)
+            novo = Cliente(id_cliente, nome, email) 
             repo.inserir(novo)
+
+            mapa = {cliente.nome: cliente for cliente in repo.listar_todos()}
+            combo["values"] = list(mapa.keys())
 
             janela.destroy()
 
@@ -467,7 +563,6 @@ class GUI:
                 if combo_parc:
                     combo_parc.destroy()
 
-                from tkinter.ttk import Combobox
                 combo_parc = Combobox(frame_credito, values=["1x", "2x", "3x", "4x", "5x"])
                 combo_parc.current(0)
                 combo_parc.pack(pady=5)
@@ -492,19 +587,26 @@ class GUI:
 
         janela = Toplevel(self.janela)
         janela.title("Alterar Reserva")
+        repo = self.banco.reservas
 
-        Label(janela, text="ID da Reserva:").pack(pady=5)
-        entry_id = Entry(janela)
-        entry_id.pack(pady=5)
+        Label(janela, text="Selecione a Reserva:").pack(pady=5)
+        nomes = [f"{res.id} - {res.cliente.nome}" for res in repo.listar_todos()]
+        combo = Combobox(janela, values=nomes, state="readonly")
+        combo.pack(pady=5)
 
         def carregar():
+            item = combo.get()
+            if not item:
+                return
+            
+            rid = int(item.split(" - ")[0])
+            reserva = repo.buscar_por_id(rid)
 
-            rid = int(entry_id.get())
-            reserva = self.banco.reservas.buscar_por_id(rid)
-            self.tela_editar_reserva(reserva)
             janela.destroy()
+            self.tela_editar_reserva(reserva)
 
         Button(janela, text="Carregar", width=20, command=carregar).pack(pady=10)
+
     
     def tela_editar_reserva(self, reserva):
 
@@ -536,21 +638,26 @@ class GUI:
             j = Toplevel(janela)
             j.title("Adicionar Destino")
 
-            Label(j, text="ID do destino:").pack(pady=5)
-            e_dest = Entry(j)
-            e_dest.pack()
+            Label(j, text="Destino:").pack(pady=5)
+            mapa_destinos = {d.cidade: d for d in self.banco.destinos.listar_todos()}
+            nomes_destinos = list(mapa_destinos.keys())
+            combo = Combobox(j, values=nomes_destinos, state="readonly", width=30)
+            combo.pack()
 
             Label(j, text="Dias:").pack(pady=5)
             e_dias = Entry(j)
             e_dias.pack()
 
             def confirmar():
-                destino = self.banco.destinos.buscar_por_id(int(e_dest.get()))
+                selecionado = combo.get()
+
+                destino = mapa_destinos[selecionado]
                 dias = int(e_dias.get())
+
                 reserva.adicionar_item(ItemReserva(destino, dias))
                 atualizar_lista()
                 j.destroy()
-                
+
             Button(j, text="Adicionar", width=20, command=confirmar).pack(pady=10)
 
         Button(janela, text="Adicionar Destino", width=20, command=adicionar_destino).pack(pady=10)
@@ -594,7 +701,6 @@ class GUI:
                 if combo_parc:
                     combo_parc.destroy()
 
-                from tkinter.ttk import Combobox
                 combo_parc = Combobox(frame_credito, values=["1x", "2x", "3x", "4x", "5x"])
                 combo_parc.current(0)
                 combo_parc.pack(pady=5)
@@ -615,17 +721,25 @@ class GUI:
         Button(janela, text="Finalizar Reserva", width=20, command=finalizar1).pack(pady=10)
 
     def apagar_reserva(self):
+
         janela = Toplevel(self.janela)
         janela.title("Excluir Reserva")
 
-        Label(janela, text="ID da reserva para excluir:").pack(pady=5)
-        entry_id = Entry(janela)
-        entry_id.pack(pady=5)
+        Label(janela, text="Selecione a Reserva para excluir:").pack(pady=5)
+        repo = self.banco.reservas
+        mapa = {reserva.cliente.nome: reserva for reserva in repo.listar_todos()}
+        nomes = list(mapa.keys())
+        combo = Combobox(janela, values=nomes, state="readonly")
+        combo.pack(pady=5)
 
         def excluir():
-            id_res = int(entry_id.get())
-            self.banco.reservas.excluir(id_res)
+            nome = combo.get()
+            if not nome:
+                return
+            reserva = mapa[nome]
+            self.banco.reservas.excluir(reserva.id)
+
             self._gui_reservas()
-            janela.destroy()
 
         Button(janela, text="Excluir", width=20, command=excluir).pack(pady=10)
+
