@@ -1,5 +1,5 @@
 from .persistencia.banco import BancoDeDados
-from .visao.cli import GUI
+from .visao.gui import GUI
 from .modelo.models import Destino, Cliente
 
 def main():
