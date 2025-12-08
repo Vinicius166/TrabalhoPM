@@ -10,10 +10,12 @@ class TestBanco(unittest.TestCase):
     def setUp(self):   # criando os dados pros testes
         self.p = Persistente[Cliente]()
         self.c1 = Cliente(1, "Vinicius", "vini@gmail.com")
-        self.c2 = Cliente(2, "Maria Eduarda", "maria@gmail.com")
     
     def test_inserir(self):   # testes de inserção e de inserção repetida
-        self.p.inserir(self.c1)
+        try:
+            self.p.buscar_por_id(self.c1.id)
+        except NaoEncontrada:
+            self.p.inserir(self.c1)
         self.assertEqual(len(self.p.listar_todos()), 1)
         self.assertEqual(self.p.buscar_por_id(1), self.c1)
 
@@ -23,7 +25,10 @@ class TestBanco(unittest.TestCase):
             self.p.inserir(self.c1)
 
     def test_alterar(self):   # testes de alteração seja ele um id inexistente ou não
-        self.p.inserir(self.c1)
+        try:
+            self.p.buscar_por_id(self.c1.id)
+        except NaoEncontrada:
+            self.p.inserir(self.c1)
         cliente_modificado = Cliente(1, "Matheus", "matheus@gmail.com")
         self.p.alterar(cliente_modificado)
 
@@ -36,7 +41,10 @@ class TestBanco(unittest.TestCase):
             self.p.alterar(self.c1)
 
     def test_excluir(self):   # testes de exclusão seja ele um id inexistente ou não
-        self.p.inserir(self.c1)
+        try:
+            self.p.buscar_por_id(self.c1.id)
+        except NaoEncontrada:
+            self.p.inserir(self.c1)
         self.p.excluir(1)
         self.assertEqual(len(self.p.listar_todos()), 0)
 
@@ -45,7 +53,10 @@ class TestBanco(unittest.TestCase):
             self.p.excluir(000)
 
     def test_busca(self):   # testes de busca seja ele um id inexistente ou não
-        self.p.inserir(self.c1)
+        try:
+            self.p.buscar_por_id(self.c1.id)
+        except NaoEncontrada:
+            self.p.inserir(self.c1)
         self.assertEqual(self.p.buscar_por_id(1), self.c1)
 
     def test_busca_id_inexistente(self):
