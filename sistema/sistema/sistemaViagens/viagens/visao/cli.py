@@ -1,7 +1,8 @@
-from ...viagens.persistencia.banco import BancoDeDados, Persistente
+from ...viagens.persistencia.banco import BancoDeDados, Persistente, NaoEncontrada
 from ...viagens.modelo.models import Cliente, Destino, Reserva, ItemReserva
 from tkinter import *
 from tkinter.ttk import Treeview, Combobox
+from tkinter import messagebox
 
 class GUI:
     def __init__(self, banco):
@@ -59,28 +60,28 @@ class GUI:
         Button(frame, text="Voltar", width=25, command=self._menu_principal).pack(pady=20)
 
         Label(frame, text="Clientes cadastrados:", font=("Arial", 14)).pack(pady=10)
-        colunas = ("ID", "Nome", "Email")
+        colunas = ("ID (3 Digitos)", "Nome", "Email")
         tabela = Treeview(frame, columns=colunas, show="headings", height=15)
 
-        tabela.heading('ID',text='ID')
+        tabela.heading('ID (3 Digitos)',text='ID (3 Digitos)')
         tabela.heading('Nome',text='Nome')
         tabela.heading('Email',text='Email')
-        tabela.column('ID', width=60)
+        tabela.column('ID (3 Digitos)', width=60)
         tabela.column('Nome', width=100)
         tabela.column('Email', width=200)
 
         tabela.pack(fill="both", expand=True, padx=10, pady=10)
         
         for cliente in repo.listar_todos():
-            tabela.insert("", "end", values=(cliente.id, cliente.nome, cliente.email))
+            tabela.insert("", "end", values=(f"{cliente.id:03d}", cliente.nome, cliente.email))
 
     def inserir_cliente(self, tipo, repo):
 
         janela = Toplevel()
         janela.title("Inserir Cliente")
-        janela.geometry("300x200")
+        janela.geometry("250x200")
 
-        Label(janela, text="ID:").pack()
+        Label(janela, text="ID(3 Digitos):").pack()
         entry_id = Entry(janela)
         entry_id.pack()
 
@@ -93,39 +94,71 @@ class GUI:
         entry_email.pack()
 
         def salvar():
+            if not entry_id.get().strip():
+                messagebox.showerror("Erro", "O ID não pode estar vazio!")
+                return
+            try:
                 id_cliente = int(entry_id.get())
-                nome = entry_nome.get()
-                email = entry_email.get()
+            except ValueError:
+                messagebox.showerror("Erro", "O ID deve ser um número inteiro!")
+                return
+            if len(entry_id.get()) != 3:
+                messagebox.showerror("Erro", "O ID deve ter exatamente 3 dígitos!")
+                return
+            try:
+                repo.buscar_por_id(id_cliente)
+                messagebox.showerror("Erro", "Já existe um cliente com esse ID!")
+                return
+            except NaoEncontrada:
+                pass
+            
+            nome = entry_nome.get()
+            email = entry_email.get()
 
-                novo = Cliente(id_cliente, nome, email)
-                repo.inserir(novo)
-                self._gui_clientes()
-                janela.destroy()
+            if nome.strip() == "":
+                messagebox.showerror("Erro", "O nome não pode estar vazio!")
+                return
+            if any(char.isdigit() for char in nome):
+                messagebox.showerror("Erro", "O nome não pode conter números!")
+                return
+            
+            if email.strip() == "":
+                messagebox.showerror("Erro", "O email não pode estar vazio!")
+                return
+
+            novo = Cliente(id_cliente, nome, email)
+            repo.inserir(novo)
+            self._gui_clientes()
+            janela.destroy()
 
         Button(janela, text="Salvar", command=salvar).pack(pady=10)
     
     def alterar_cliente(self, nome, repo):
-
+        
+        clientes = repo.listar_todos()
+        if not clientes:
+            messagebox.showerror("Erro", "Não há clientes para alterar!")
+            return
+    
         janela_id = Toplevel(self.janela)
         janela_id.title("Alterar Cliente")
+        janela_id.geometry("250x100")
 
-        nomes_clientes = [cliente.nome for cliente in repo.listar_todos()]
+        mapa = {f"{c.id:03d} - {c.nome}": c for c in repo.listar_todos()}
+        nomes_clientes = list(mapa.keys())
         combo = Combobox(janela_id, values=nomes_clientes, state="readonly")
         combo.pack(pady=5)
 
         def buscar_cliente():
             nome_escolhido = combo.get()
-            if not nome_escolhido:
+            if nome_escolhido.strip() == "":
+                messagebox.showerror("Erro", "Você deve selecionar um cliente!")
                 return
-            
-            cliente = None
-            for c in repo.listar_todos():
-                if c.nome == nome_escolhido:
-                    cliente = c
-                    break
+            cliente = mapa[nome_escolhido]
 
             janela_edicao = Toplevel(self.janela)
-            janela_edicao.title(f"Editar Cliente {cliente.id}")
+            janela_edicao.title(f"Editar Cliente {cliente.id:03d}")
+            janela_edicao.geometry("300x150")
 
             Label(janela_edicao, text="Nome:").pack()
             entry_nome = Entry(janela_edicao)
@@ -138,6 +171,17 @@ class GUI:
             entry_email.pack(pady=5)
 
             def salvar():
+                
+                if entry_nome.get().strip() == "":
+                    messagebox.showerror("Erro", "O nome não pode estar vazio!")
+                    return
+                if any(char.isdigit() for char in entry_nome.get()):
+                    messagebox.showerror("Erro", "O nome não pode conter números!")
+                    return
+                if entry_email.get().strip() == "":
+                    messagebox.showerror("Erro", "O email não pode estar vazio!")
+                    return
+                
                 novo_nome = entry_nome.get()
                 novo_email = entry_email.get()
 
@@ -153,16 +197,27 @@ class GUI:
 
     def apagar_cliente(self, tipo, repo):
 
+        clientes = repo.listar_todos()
+        if not clientes:
+            messagebox.showerror("Erro", "Não há clientes para apagar!")
+            return
+        
         janela_id = Toplevel(self.janela)
         janela_id.title("Deletar Cliente")
+        janela_id.geometry("250x100")
 
         Label(janela_id, text="Selecione o cliente:").pack(pady=5)
-        mapa = {cliente.nome: cliente.id for cliente in repo.listar_todos()}
-        nomes_clientes = [cliente.nome for cliente in repo.listar_todos()]
+        mapa = {f"{c.id:03d} - {c.nome}": c.id for c in repo.listar_todos()}
+        nomes_clientes = list(mapa.keys())
         combo = Combobox(janela_id, values=nomes_clientes, state="readonly")
         combo.pack(pady=5)
 
         def salvar():
+            selecionado = combo.get().strip()
+            if selecionado == "":
+                messagebox.showerror("Erro", "Você deve selecionar um cliente!")
+                return
+            
             nome_escolhido = combo.get()
             id_cliente = mapa[nome_escolhido]
             repo.excluir(id_cliente)
@@ -210,14 +265,14 @@ class GUI:
         Button(frame, text="Voltar", width=25, command=self._menu_principal).pack(pady=20)
         
         Label(frame, text="Destinos cadastrados:", font=("Arial", 14)).pack(pady=10)
-        colunas = ("ID", "Cidade", "Hotel", "Diária")
+        colunas = ("ID (5 Digitos)", "Cidade", "Hotel", "Diária")
         tabela = Treeview(frame, columns=colunas, show="headings", height=15)
 
-        tabela.heading('ID',text='ID')
+        tabela.heading('ID (5 Digitos)',text='ID (5 Digitos)')
         tabela.heading('Cidade',text='Cidade')
         tabela.heading('Hotel',text='Hotel')
         tabela.heading('Diária',text='Diária(R$)')
-        tabela.column('ID', width=60)
+        tabela.column('ID (5 Digitos)', width=60)
         tabela.column('Cidade', width=100)
         tabela.column('Hotel', width=200)
         tabela.column('Diária', width=60)
@@ -225,7 +280,7 @@ class GUI:
         tabela.pack(fill="both", expand=True, padx=10, pady=10)
         
         for destino in repo.listar_todos():
-            tabela.insert("", "end", values=(destino.id, destino.cidade, destino.hotel, destino.valor_diaria))
+            tabela.insert("", "end", values=(f"{destino.id:05d}", destino.cidade, destino.hotel, f"{destino.valor_diaria:.2f}"))
 
 
     def inserir_destino(self, tipo, repo):
@@ -234,7 +289,7 @@ class GUI:
         janela.title("Inserir Destino")
         janela.geometry("300x200")
 
-        Label(janela, text="ID:").pack()
+        Label(janela, text="ID (5 Digitos):").pack()
         entry_id = Entry(janela)
         entry_id.pack()
 
@@ -251,41 +306,85 @@ class GUI:
         entry_Valor.pack()
 
         def salvar():
-                id_destino = int(entry_id.get())
+                if entry_id.get().strip() == "":
+                    messagebox.showerror("Erro", "O ID não pode estar vazio!")
+                    return
+                try:
+                    id_destino = int(entry_id.get())
+                except ValueError:
+                    messagebox.showerror("Erro", "O ID deve ser um número inteiro!")
+                    return
+                if len(entry_id.get()) != 5:
+                    messagebox.showerror("Erro", "O ID deve ter exatamente 5 dígitos!")
+                    return
+                try:
+                    repo.buscar_por_id(id_destino)
+                    messagebox.showerror("Erro", "Já existe um destino com esse ID!")
+                    return
+                except NaoEncontrada:
+                    pass
+
+                if entry_cidade.get().strip() == "":
+                    messagebox.showerror("Erro", "A cidade não pode estar vazia!")
+                    return
+                if any(char.isdigit() for char in entry_cidade.get()):
+                    messagebox.showerror("Erro", "A cidade não pode conter números!")
+                    return
+                
+                if entry_Hotel.get().strip() == "":
+                    messagebox.showerror("Erro", "O hotel não pode estar vazio!")
+                    return
+                if any(char.isdigit() for char in entry_Hotel.get()):
+                    messagebox.showerror("Erro", "O hotel não pode conter números!")
+                    return
+                
+                if entry_Valor.get().strip() == "":
+                    messagebox.showerror("Erro", "O Valor da diária não pode estar vazio!")
+                    return
+                try:
+                    valor = float(entry_Valor.get())
+                except ValueError:
+                    messagebox.showerror("Erro", "O valor da diária deve ser um número!")
+                    return
+                
                 cidade = entry_cidade.get()
                 hotel = entry_Hotel.get()
-                valor = float(entry_Valor.get())
-
                 novo = Destino(id_destino, cidade, hotel, valor)
                 repo.inserir(novo)
                 self._gui_destinos()
-
                 janela.destroy()
 
         Button(janela, text="Salvar", command=salvar).pack(pady=10)
 
     def alterar_destino(self, nome, repo):
 
+        destinos = repo.listar_todos()
+        if not destinos:
+            messagebox.showerror("Erro", "Não há destinos para alterar!")
+            return
+        
         janela_id = Toplevel(self.janela)
         janela_id.title("Alterar Destino")
+        janela_id.geometry("300x100")
 
-        nomes_cidades = [destino.cidade for destino in repo.listar_todos()]
+        nomes_cidades = [f"{destino.id:05d} - {destino.cidade}" for destino in repo.listar_todos()]
         combo = Combobox(janela_id, values=nomes_cidades, state="readonly")
         combo.pack(pady=5)
 
         def buscar_cidade():
             nome_escolhido = combo.get()
             if not nome_escolhido:
+                messagebox.showerror("Erro", "Você deve selecionar uma opção!")
                 return
             
-            destino = None
-            for c in repo.listar_todos():
-                if c.cidade == nome_escolhido:
-                    destino = c
-                    break
+            id_str = nome_escolhido.split(" - ")[0]
+            id_destino = int(id_str)
+
+            destino = repo.buscar_por_id(id_destino)
 
             janela_edicao = Toplevel(self.janela)
-            janela_edicao.title(f"Editar Destino {destino.id}")
+            janela_edicao.title(f"Alterar Destino {destino.id:05d}")
+            janela_edicao.geometry("300x200")
 
             Label(janela_edicao, text="Cidade:").pack()
             entry_cidade = Entry(janela_edicao)
@@ -303,10 +402,32 @@ class GUI:
             entry_valor.pack(pady=5)
 
             def salvar():
+
+                if entry_cidade.get().strip() == "":
+                    messagebox.showerror("Erro", "A cidade não pode estar vazia!")
+                    return
+                if any(char.isdigit() for char in entry_cidade.get()):
+                    messagebox.showerror("Erro", "A cidade não pode conter números!")
+                    return
+                
+                if entry_hotel.get().strip() == "":
+                    messagebox.showerror("Erro", "O hotel não pode estar vazio!")
+                    return
+                if any(char.isdigit() for char in entry_hotel.get()):
+                    messagebox.showerror("Erro", "O hotel não pode conter números!")
+                    return
+                
+                if entry_valor.get().strip() == "":
+                    messagebox.showerror("Erro", "O Valor da diária não pode estar vazio!")
+                    return
+                try:
+                    novo_valor = float(entry_valor.get())
+                except ValueError:
+                    messagebox.showerror("Erro", "O valor da diária deve ser um número!")
+                    return
+                
                 novo_cidade = entry_cidade.get()
                 novo_hotel = entry_hotel.get()
-                novo_valor = float(entry_valor.get())
-
                 destino.cidade = novo_cidade
                 destino.hotel = novo_hotel
                 destino.valor_diaria = novo_valor
@@ -320,23 +441,34 @@ class GUI:
 
     def apagar_destino(self, tipo, repo):
 
+        destinos = repo.listar_todos()
+        if not destinos:
+            messagebox.showerror("Erro", "Não há destinos para excluir!")
+            return
+
         janela_id = Toplevel(self.janela)
         janela_id.title("Deletar Destino")
+        janela_id.geometry("300x100")
 
         Label(janela_id, text="Selecione o destino:").pack(pady=5)
-        mapa = {destino.cidade: destino.id for destino in repo.listar_todos()}
-        nomes_cidades = [destino.cidade for destino in repo.listar_todos()]
-        combo = Combobox(janela_id, values=nomes_cidades, state="readonly")
+        mapa = {f"{d.id:05d} - {d.cidade}": d.id for d in destinos}
+        nomes_destinos = list(mapa.keys())
+        combo = Combobox(janela_id, values=nomes_destinos, state="readonly")
         combo.pack(pady=5)
 
         def salvar():
-            destino_escolhido = combo.get()
-            id_destino = mapa[destino_escolhido]
+            escolhido = combo.get()
+            if not escolhido:
+                messagebox.showerror("Erro", "Você deve selecionar uma opção!")
+                return
+
+            id_destino = mapa[escolhido]
             repo.excluir(id_destino)
             self._gui_destinos()
             janela_id.destroy()
-            
+                        
         Button(janela_id, text="Salvar", command=salvar).pack(pady=10)
+
     '''   
     def destino_id(self, tipo, repo):
 
@@ -422,7 +554,9 @@ class GUI:
         
         janela = Toplevel(self.janela)
         janela.title("Nova Reserva")
+        janela.geometry("300x150")
         repo = self.banco.clientes
+        mapa = {}
 
         Label(janela, text="Selecionar Cliente:").pack(pady=5)
         combo = Combobox(janela, state="readonly")
@@ -430,17 +564,19 @@ class GUI:
 
         
         def atualizar_combo():
-            combo["values"] = [c.nome for c in repo.listar_todos()]
+            nonlocal mapa
+            mapa = {f"{c.id:03d} - {c.nome}": c for c in repo.listar_todos()}
+            combo["values"] = list(mapa.keys())
         atualizar_combo()
 
         def continuar():
             nome_escolhido = combo.get()
             if not nome_escolhido:
+                messagebox.showerror("Erro", "Você deve selecionar uma opção!")
                 return
-            
-            mapa = {cliente.nome: cliente for cliente in repo.listar_todos()}
 
             cliente_obj = mapa[nome_escolhido]
+
             nova_reserva = Reserva(
                 id=len(self.banco.reservas.listar_todos()) + 1,
                 cliente=cliente_obj
@@ -449,10 +585,10 @@ class GUI:
             self._add_destino(cliente_obj, nova_reserva)
 
         Button(janela, text="Continuar", width=20, command=continuar).pack(pady=10)
-        Button(janela, text="Adicionar Cliente", width=20, command=lambda: self.inserir_cliente_reserva(repo, combo)).pack(pady=5)
+        Button(janela, text="Adicionar Cliente", width=20, command=lambda: self.inserir_cliente_reserva(repo, combo, atualizar_combo)).pack(pady=5)
 
 
-    def inserir_cliente_reserva(self, repo, combo):
+    def inserir_cliente_reserva(self, repo, combo, atualizar_combo):
 
         janela = Toplevel(self.janela)
         janela.title("Inserir Cliente")
@@ -471,16 +607,41 @@ class GUI:
         entry_email.pack()
 
         def salvar():
-            id_cliente = int(entry_id.get())
+            if not entry_id.get().strip():
+                messagebox.showerror("Erro", "O ID não pode estar vazio!")
+                return
+            try:
+                id_cliente = int(entry_id.get())
+            except ValueError:
+                messagebox.showerror("Erro", "O ID deve ser um número inteiro!")
+                return
+            if len(entry_id.get()) != 3:
+                messagebox.showerror("Erro", "O ID deve ter exatamente 3 dígitos!")
+                return
+            try:
+                repo.buscar_por_id(id_cliente)
+                messagebox.showerror("Erro", "Já existe um cliente com esse ID!")
+                return
+            except NaoEncontrada:
+                pass
+            
             nome = entry_nome.get()
             email = entry_email.get()
 
+            if nome.strip() == "":
+                messagebox.showerror("Erro", "O nome não pode estar vazio!")
+                return
+            if any(char.isdigit() for char in nome):
+                messagebox.showerror("Erro", "O nome não pode conter números!")
+                return
+            
+            if email.strip() == "":
+                messagebox.showerror("Erro", "O email não pode estar vazio!")
+                return
+
             novo = Cliente(id_cliente, nome, email) 
             repo.inserir(novo)
-
-            mapa = {cliente.nome: cliente for cliente in repo.listar_todos()}
-            combo["values"] = list(mapa.keys())
-
+            atualizar_combo()
             janela.destroy()
 
         Button(janela, text="Salvar", command=salvar).pack(pady=10) 
@@ -498,16 +659,32 @@ class GUI:
         listbox.pack()
 
         for d in destinos:
-            listbox.insert(END, f"{d.id} - {d.cidade} - R$ {d.valor_diaria:.2f}")
+            listbox.insert(END, f"{d.id:03d} - {d.cidade} - R$ {d.valor_diaria:.2f}")
 
         Label(janela, text="Dias:").pack(pady=5)
         entry_dias = Entry(janela)
         entry_dias.pack(pady=5)
 
         def salvar_item():
+            if not listbox.curselection():
+                messagebox.showerror("Erro", "Você deve selecionar um destino!")
+                return
             idx = listbox.curselection()[0]
             destino = destinos[idx]
-            dias = int(entry_dias.get())
+            
+            if entry_dias.get().strip()  == "":
+                messagebox.showerror("Erro", "O campo dias não pode estar vazio!")
+                return
+            
+            try:
+                dias = int(entry_dias.get().strip())
+            except ValueError:
+                messagebox.showerror("Erro", "O número de dias deve ser um inteiro!")
+                return
+            
+            if dias <= 0:
+                messagebox.showerror("Erro", "O número de dias deve ser maior que zero!")
+                return
 
             reserva.adicionar_item(ItemReserva(destino, dias))
             janela.destroy()
@@ -518,6 +695,7 @@ class GUI:
     def perguntar_outro_destino(self, cliente, reserva):
         janela = Toplevel(self.janela)
         janela.title("Continuar?")
+        janela.geometry("250x150")
 
         Label(janela, text="Deseja adicionar outro destino?").pack(pady=10)
 
@@ -535,9 +713,9 @@ class GUI:
     def tela_pagamento(self, reserva):
         janela = Toplevel(self.janela)
         janela.title("Pagamento")
-
+        janela.geometry("300x250")
+        
         Label(janela, text="Método de Pagamento:").pack(pady=5)
-
         var_pag = IntVar()
         var_pag.set(2)
 
@@ -584,19 +762,31 @@ class GUI:
         Button(janela, text="Finalizar Reserva", width=20, command=finalizar).pack(pady=10)
 
     def alterar_reserva(self):
-
+        
+        repo = self.banco.reservas
+        reservas = repo.listar_todos()
+        if not reservas:
+            messagebox.showerror("Erro", "Não há reservas para alterar!")
+            return
+        
         janela = Toplevel(self.janela)
         janela.title("Alterar Reserva")
-        repo = self.banco.reservas
+        janela.geometry("250x150")
+        
 
         Label(janela, text="Selecione a Reserva:").pack(pady=5)
         nomes = [f"{res.id} - {res.cliente.nome}" for res in repo.listar_todos()]
+        if not nomes:
+            messagebox.showinfo("Aviso", "Nenhuma reserva cadastrada.")
+            janela.destroy()
+            return
         combo = Combobox(janela, values=nomes, state="readonly")
         combo.pack(pady=5)
 
         def carregar():
             item = combo.get()
             if not item:
+                messagebox.showerror("Erro", "Você deve selecionar uma opção!")
                 return
             
             rid = int(item.split(" - ")[0])
@@ -613,7 +803,7 @@ class GUI:
         janela = Toplevel(self.janela)
         janela.geometry("600x400")
         janela.title(f"Editando Reserva {reserva.id}")
-        Label(janela, text=f"Cliente: {reserva.cliente.id} - {reserva.cliente.nome}").pack(pady=5)
+        Label(janela, text=f"Cliente: {reserva.cliente.id:03d} - {reserva.cliente.nome}").pack(pady=5)
         Label(janela, text=f"Método de pagamento atual: {reserva.metodo_pagamento}").pack(pady=5)
         Label(janela, text="Destinos da Reserva:").pack(pady=5)
 
@@ -637,11 +827,12 @@ class GUI:
         def adicionar_destino():
             j = Toplevel(janela)
             j.title("Adicionar Destino")
+            j.geometry("250x150")
 
             Label(j, text="Destino:").pack(pady=5)
-            mapa_destinos = {d.cidade: d for d in self.banco.destinos.listar_todos()}
-            nomes_destinos = list(mapa_destinos.keys())
-            combo = Combobox(j, values=nomes_destinos, state="readonly", width=30)
+            mapa_destinos = self.banco.destinos.listar_todos()
+            nomes_combo = [f"{d.id:03d} - {d.cidade}" for d in mapa_destinos]
+            combo = Combobox(j, values=nomes_combo, state="readonly", width=30)
             combo.pack()
 
             Label(j, text="Dias:").pack(pady=5)
@@ -650,10 +841,30 @@ class GUI:
 
             def confirmar():
                 selecionado = combo.get()
+                if not selecionado:
+                    messagebox.showerror("Erro", "Você deve selecionar um destino!")
+                    return
+                try:
+                    D_id = int(selecionado.split(" - ")[0])
+                except ValueError:
+                    messagebox.showerror("Erro", "Destino inválido!")
+                    return
+                destino = self.banco.destinos.buscar_por_id(D_id)
+                
 
-                destino = mapa_destinos[selecionado]
-                dias = int(e_dias.get())
+                if e_dias.get().strip() == "":
+                    messagebox.showerror("Erro", "O campo dias não pode estar vazio!")
+                    return
+                try:
+                    dias = int(e_dias.get())
+                except ValueError:
+                    messagebox.showerror("Erro", "O número de dias deve ser um inteiro!")
+                    return
 
+                if dias <= 0:
+                    messagebox.showerror("Erro", "O número de dias deve ser maior que zero!")
+                    return
+                
                 reserva.adicionar_item(ItemReserva(destino, dias))
                 atualizar_lista()
                 j.destroy()
@@ -664,6 +875,9 @@ class GUI:
         Button(janela, text="Alterar Pagamento", width=20, command=lambda: self.tela_pagamento_reserva(reserva)).pack(pady=10)
 
         def salvar():
+            if not reserva.itens:
+                messagebox.showerror("Erro", "A reserva precisa ter pelo menos um destino!")
+                return
             self.banco.reservas.alterar(reserva)
             self._gui_reservas()
             janela.destroy()
@@ -673,7 +887,7 @@ class GUI:
     def tela_pagamento_reserva(self, reserva):
         janela = Toplevel(self.janela)
         janela.title("Pagamento")
-
+        janela.geometry("300x250")
         Label(janela, text="Método de Pagamento:").pack(pady=5)
 
         var_pag = IntVar()
@@ -692,7 +906,7 @@ class GUI:
         combo_parc = None
 
         def atualizar_credito(*args):
-
+            
             nonlocal combo_parc
             if var_pag.get() == 3:
                 total = reserva.custo_bruto() * 1.03
@@ -722,12 +936,18 @@ class GUI:
 
     def apagar_reserva(self):
 
+        repo = self.banco.reservas
+        reservas = repo.listar_todos()
+        if not reservas:
+            messagebox.showerror("Erro", "Não há reservas para excluir!")
+            return
+
         janela = Toplevel(self.janela)
         janela.title("Excluir Reserva")
+        janela.geometry("250x150")
 
         Label(janela, text="Selecione a Reserva para excluir:").pack(pady=5)
-        repo = self.banco.reservas
-        mapa = {reserva.cliente.nome: reserva for reserva in repo.listar_todos()}
+        mapa = {f"{res.id:03d} - {res.cliente.nome}": res for res in reservas}
         nomes = list(mapa.keys())
         combo = Combobox(janela, values=nomes, state="readonly")
         combo.pack(pady=5)
@@ -735,6 +955,7 @@ class GUI:
         def excluir():
             nome = combo.get()
             if not nome:
+                messagebox.showerror("Erro", "Você deve selecionar uma opção!")
                 return
             reserva = mapa[nome]
             self.banco.reservas.excluir(reserva.id)
